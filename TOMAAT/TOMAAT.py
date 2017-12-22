@@ -66,7 +66,7 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
     ScriptedLoadableModuleWidget.setup(self)
 
     self.serverUrl = ''
-
+    self.clearToSendMsg = False
     # Instantiate and connect widgets ...
 
     #
@@ -232,12 +232,53 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
 
     self.removeListGuiReset += [self.urlBoxDirectConnection]
 
+  def onAgreeButton(self):
+    self.clearToSendMsg = True
+
+  def confirmationPopup(self, message, autoCloseMsec=1000):
+    """Display an information message in a popup window for a short time.
+    If autoCloseMsec>0 then the window is closed after waiting for autoCloseMsec milliseconds
+    If autoCloseMsec=0 then the window is not closed until the user clicks on it.
+    """
+    messagePopup = qt.QDialog()
+    layout = qt.QVBoxLayout()
+    messagePopup.setLayout(layout)
+    label = qt.QLabel(message, messagePopup)
+    layout.addWidget(label)
+
+    okButton = qt.QPushButton("Submit")
+    layout.addWidget(okButton)
+    okButton.connect('clicked()', self.onAgreeButton)
+    okButton.connect('clicked()', messagePopup.close)
+
+    stopButton = qt.QPushButton("Stop")
+    layout.addWidget(stopButton)
+    stopButton.connect('clicked()', messagePopup.close)
+
+    messagePopup.exec_()
+
   def onApplyButton(self):
     logic = TOMAATLogic()
 
     if self.serverUrl == '':
-      print 'NO SERVER HAS BEEN SPECIFIED'
+      logging.info('NO SERVER HAS BEEN SPECIFIED')
       return
+
+    self.confirmationPopup(
+      '<center>By clicking Submit button you acknowledge that you <br>'
+      'are going to send the volume  <b>{}</b> over the internet to <br>'
+      'a remote server at URL <b>{}</b>. It is your responsibility to <br>'
+      'ensure that by doing so you are not violating any rules governing <br>'
+      'access to the data being sent</center>'.format(
+        self.inputSelector.currentNode().GetName(),
+        self.serverUrl)
+    )
+
+    if not self.clearToSendMsg:
+      logging.info('USER REQUESTED STOP')
+      return
+
+    self.clearToSendMsg=False
 
     print 'CONNECTING TO SERVER {}'.format(self.serverUrl)
 
