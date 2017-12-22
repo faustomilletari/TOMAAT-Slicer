@@ -16,13 +16,12 @@ import json
 import uuid
 import base64
 import sys
-
+import tempfile
 #
 # TOMAAT
 #
 
 
-savepath = '/tmp/'
 module_version = 0.01
 
 
@@ -315,6 +314,7 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
     """
     Run the actual algorithm
     """
+    savepath = tempfile.gettempdir()
 
     if not self.isValidInputOutputData(inputVolume):
       slicer.util.errorDisplay('Input volume is invalid')
@@ -345,7 +345,6 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
         'module_version': module_version,
         'modality': 'MRI',
         'anatomy': 'Prostate',
-        'uid': str(id)
       }
 
       print 'MESSAGE Prepared, size {}'.format(sys.getsizeof(message))
@@ -360,7 +359,7 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
 
     if response_json['status'] != 0:
       print response_json['error']
-      return 0.0, -1
+      raise ValueError
 
     with open(tmp_segmentation_mha, 'wb') as f:
       f.write(base64.decodestring(response_json['content_mha']))
