@@ -33,4 +33,8 @@ After the GET request is made to the service discovery server url (for example h
 * 'anatomies': list of anatomies the endpoints are capable of segmenting
 * 'descriptions': list of endpoint descriptions (which method is used, which resolution, how fast it is etc...)
 
-
+### Segmentation service interface
+Segmentation happens by first dumping to disk the selected volume in a temporary folder in MHA format. At this point the volume will be re-read back into the TOMAAT-slicer extension and processed into a string through 'base64.encodestring'. At this point a JSON message will be created with the following fields:
+* 'content_mha': string containing the data from the MHA file
+* 'threshold': threshold to apply to the final segmentation result
+* 'module_version': the version of the TOMAAT-slicer extension
