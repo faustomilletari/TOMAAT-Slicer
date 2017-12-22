@@ -343,8 +343,6 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
         'content_mha': base64.encodestring(f.read()),
         'threshold': imageThreshold,
         'module_version': module_version,
-        'modality': 'MRI',
-        'anatomy': 'Prostate',
       }
 
       print 'MESSAGE Prepared, size {}'.format(sys.getsizeof(message))
