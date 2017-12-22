@@ -269,7 +269,8 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
       'are going to send the volume  <b>{}</b> over the internet to <br>'
       'a remote server at URL <b>{}</b>. It is your responsibility to <br>'
       'ensure that by doing so you are not violating any rules governing <br>'
-      'access to the data being sent</center>'.format(
+      'access to the data being sent. More info '
+      '<a href="https://github.com/faustomilletari/TOMAAT-Slicer/blob/master/README.md">here</a>.</center>'.format(
         self.inputSelector.currentNode().GetName(),
         self.serverUrl)
     )
