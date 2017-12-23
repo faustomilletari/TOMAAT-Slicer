@@ -11,7 +11,7 @@ In this repository you find TOMAAT-slicer. TOMAAT-slicer is written in python an
 
 ### GUI
 
-Our gui is divided in multiple parts using collapsible buttons. It is written in PyQt and is following the format suggested by slicer extension wizard.
+Our gui is divided in multiple parts using collapsible buttons. It is written in PythonQt and is following the format suggested by 3D-Slicer extension wizard.
 
 * Info: contains the logo of our extension
 * Direct Connection: allows you to directly specify the URL of a TOMAAT service residing on another host connect via network in order to use it for inference. This is useful to people who want to run inference on their own machine without making their service available to anyone else who doesn't know the address of the enpoint.
