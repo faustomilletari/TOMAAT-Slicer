@@ -1,5 +1,6 @@
 # TOMAAT-slicer
-TOMAAT-slicer is a Slicer extension that allows you to run perform deep learning based segmentation of medical volumes through inference service deployed on the cloud
+TOMAAT-slicer: access deep learning modules over the cloud using [3D Slicer](https://www.slicer.org).
+This project is a Slicer extension that allows you to run perform deep learning based segmentation of medical volumes through inference service deployed on the cloud via [TOMAAT](https://github.com/faustomilletari/TOMAAT)
 
 ## Disclaimer
 This software is provided "as-it-is" without any guarantee of correct functionality or guarantee of quality. No formal support for this software will be given to users. This slicer extension and any other part of the TOMAAT project should not be used for medical purposes. In particular this software should not be used to make, support, gain evidence on and aid medical decisions, interventions or diagnoses. Any use of this software for finalities other than "having fun with it" is prohibited.
