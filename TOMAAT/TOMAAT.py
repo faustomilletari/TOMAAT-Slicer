@@ -12,6 +12,14 @@ except:
   import requests
   pass
 
+try:
+  from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
+except:
+  import pip
+  pip.main(['install', 'requests_toolbelt'])
+  from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
+  pass
+
 import json
 import uuid
 import base64
@@ -22,7 +30,7 @@ import tempfile
 #
 
 
-module_version = 0.01
+module_version = 1
 
 
 class TOMAAT(ScriptedLoadableModule):
@@ -283,7 +291,12 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
 
     print 'CONNECTING TO SERVER {}'.format(self.serverUrl)
 
-    elap_time, volumeNode = logic.run(self.inputSelector.currentNode(), self.imageThresholdSliderWidget.value, self.serverUrl)
+    progress_bar = slicer.util.createProgressDialog(labelText="Uploading to remote server", windowTitle="Uploading...")
+    progress_bar.setCancelButton(0)
+
+    elap_time, volumeNode = logic.run(
+      self.inputSelector.currentNode(), self.imageThresholdSliderWidget.value, self.serverUrl, progress_bar
+    )
 
     self.time.setText('Inference time: {} ms'.format(np.round(elap_time)))
 
@@ -316,6 +329,14 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
     sliceNode = sliceLogic.GetSliceNode()
     sliceNode.SetSliceVisible(True)
 
+
+def create_callback(encoder, progress_bar):
+  encoder_len = encoder.len
+
+  def callback(monitor):
+    progress_bar.value = float(monitor.bytes_read)/float(encoder_len) * 100
+
+  return callback
 
 #
 # TOMAATLogic
@@ -352,7 +373,7 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
 
     return True
 
-  def run(self, inputVolume, imageThreshold, server_url):
+  def run(self, inputVolume, imageThreshold, server_url, progress_bar):
     """
     Run the actual algorithm
     """
@@ -380,18 +401,25 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
     # prepare data for processing
     slicer.util.saveNode(inputVolume, tmp_filename_mha)
 
-    with open(tmp_filename_mha, 'rb') as f:
-      message = {
-        'content_mha': base64.encodestring(f.read()),
-        'threshold': imageThreshold,
-        'module_version': module_version,
-      }
+    message = {
+      'json': json.dumps(
+        {
+          'threshold': imageThreshold,
+          'module_version': module_version,
+        }
+      ),
+      'file': ('filename', open(tmp_filename_mha, 'rb'), 'text/plain')
+    }
 
-      print 'MESSAGE Prepared, size {}'.format(sys.getsizeof(message))
+    encoder = MultipartEncoder(message)
+    progress_bar.open()
+    callback = create_callback(encoder, progress_bar)
 
-      response = requests.post(server_url, data=json.dumps(message))
+    monitor = MultipartEncoderMonitor(encoder, callback)
 
-      print 'MESSAGE SENT'
+    response = requests.post(server_url, data=monitor, headers={'Content-Type': monitor.content_type})
+
+    print 'MESSAGE SENT'
 
     response_json = response.json()
 
