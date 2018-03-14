@@ -17,9 +17,19 @@ Our gui is divided in multiple parts using collapsible buttons. It is written in
 * Direct Connection: allows you to directly specify the URL of a TOMAAT service residing on another host connect via network in order to use it for inference. This is useful to people who want to run inference on their own machine without making their service available to anyone else who doesn't know the address of the enpoint.
 * Public Server List: Allows to specify the URL of a public server list discovery service (default http://tomaat.cloud:8000/discovery) and obtian a list of available services that are present on the network and can be distributed anywhere in the world. The user can select the service that is appropriate for the type of data at hand, if present, and submit volumes to it. 
 Service discovery happens when the user clicks on the button 'Discover Services'
-* Processing: this part of the GUI starts out empty. Once a server is selected from the Public Server List or through the Direct Connection pane, the server is queried to obtain instructions about how to build the GUI. This follows a "widget-based" strategy. The server specifies which widget should be spawned in the Processing pane, and which field of the request message should be filled with data after user interaction. This Slicer module, in this moment, supports "ScalarVolumeWidget", "SliderWidget", "CheckboxWidget" and "RadioButtonWidget". Each widget allows user interaction. The "ScalarVolumeWidget" allows the user to select a volume from the MRML scene in 3D-Slicer and send it for inference to the remote host, for example. Other widgets have different roles.
+* Processing: this part of the GUI starts out empty. Once a server is selected from the Public Server List or through the Direct Connection pane, the server is queried to obtain instructions about how to build the GUI. This follows a "widget-based" strategy. The server specifies which widget should be spawned in the Processing pane, and which field of the request message should be filled with data after user interaction. This Slicer module, in this moment, supports:
+* "ScalarVolumeWidget"
+* "SliderWidget" 
+* "CheckboxWidget" 
+* "RadioButtonWidget"
+
+Each widget allows user interaction. The "ScalarVolumeWidget" allows the user to select a volume from the MRML scene in 3D-Slicer and send it for inference to the remote host, for example. Other widgets have different roles.
 Processing happens when the user clicks on the button 'Process'.
-When the response is received, the data is loaded accordingly. We support responses of arbitrary length containing one or multiple fields of type "LabelVolume", "VTKMesh", "Fiducials" and "PlainText".
+When the response is received, the data is loaded accordingly. We support responses of arbitrary length containing one or multiple fields of type:
+* "LabelVolume" 
+* "VTKMesh" 
+* "Fiducials" 
+* "PlainText"
 
 
 ### Architecture
