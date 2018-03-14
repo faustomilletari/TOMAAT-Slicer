@@ -59,7 +59,7 @@ class TOMAAT(ScriptedLoadableModule):
     self.parent.contributors = CONTRIB
     self.parent.helpText = MESSAGE
     self.parent.helpText += self.getDefaultModuleDocumentationLink()
-    self.parent.acknowledgementText = ""
+    self.parent.acknowledgementText = "None"
 
 
 #
