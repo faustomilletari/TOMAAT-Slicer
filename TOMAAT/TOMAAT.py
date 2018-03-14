@@ -95,7 +95,7 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
     self.layout.addWidget(directConnectionCollapsibleButton)
     self.directConnectionLayout = qt.QFormLayout(directConnectionCollapsibleButton)
 
-    self.urlBoxDirectConnection = add_textbox("http://localhost:9000", self.select_from_textbox)
+    self.urlBoxDirectConnection = add_textbox("http://localhost:9000/interface", self.select_from_textbox)
 
     self.directConnectionLayout.addRow("Server URL: ", self.urlBoxDirectConnection)
 
@@ -191,8 +191,15 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
 
   def select_from_textbox(self):
     print 'USING HOST IN DIRECT CONNECTION PANE'
-    self.predictionUrl = self.urlBoxDirectConnection.text
+    self.predictionUrl = self.urlBoxDirectConnection.text + '/predict'
+    self.interfaceUrl = self.urlBoxDirectConnection.text + '/interface'
     self.serviceDescription.setText('')
+
+    logic = InterfaceDiscoveryLogic()
+
+    interface_specification = logic.run(self.interfaceUrl)
+
+    self.add_widgets(interface_specification)
 
   def select_from_tree(self):
     item = self.serviceTree.selectedItems()
