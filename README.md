@@ -23,7 +23,7 @@ Service discovery happens when the user clicks on the button 'Discover Services'
   * "CheckboxWidget" 
   * "RadioButtonWidget"
   
-  Each widget allows user interaction. The "ScalarVolumeWidget" allows the user to select a volume from the MRML scene in 3D-Slicer and send it for inference to the remote host, for example. Other widgets have different roles.
+  Each widget allows user interaction. The "ScalarVolumeWidget", for example, allows the user to select a volume from the MRML scene in 3D-Slicer and send it for inference to the remote host. Other widgets have different roles.
 Processing happens when the user clicks on the button 'Process'.
 When the response is received, the data is loaded accordingly. We support responses of arbitrary length containing one or multiple fields of type:
   * "LabelVolume" 
@@ -32,20 +32,20 @@ When the response is received, the data is loaded accordingly. We support respon
   * "PlainText"
 
 
-### Architecture
+### Architecture [OUTDATED]
 A summary of the current architecture of TOMAAT is shown below:
 ![architecture](http://tomaat.cloud/images/architecture.jpg)
 All communications between local and remote machines -- for service discovery and inference -- happen through HTTP protocol. Services are discovered by a GET request to the appropriate URL while images are segmented through a POST request containing JSON data.
 The interfaces used for communication are specified in the following:
 
-### Service discovery interface
+### Service discovery interface [OUTDATED]
 After the GET request is made to the service discovery server url (for example http://tomaat.cloud:8000/discovery) a JSON message is received. It contains:
 * 'hosts': list of URL of inference services (endpoints)
 * 'modalities': list of modalities the endpoints are capable of processing
 * 'anatomies': list of anatomies the endpoints are capable of segmenting
 * 'descriptions': list of endpoint descriptions (which method is used, which resolution, how fast it is etc...)
 
-### Segmentation service interface
+### Segmentation service interface [OUTDATED]
 Segmentation happens by first dumping to disk the selected volume in a temporary folder in MHA format. At this point the volume will be re-read back into the TOMAAT-slicer extension and processed into a string through 'base64.encodestring'. At this point a JSON message will be created with the following fields:
 * 'content_mha': string containing the data from the MHA file
 * 'threshold': threshold to apply to the final segmentation result
