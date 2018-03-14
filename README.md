@@ -39,7 +39,7 @@ All communications between local and remote machines -- for service discovery an
 The interfaces used for communication are specified in the following:
 
 ### Service discovery interface [OUTDATED]
-After the GET request is made to the service discovery server url (for example http://tomaat.cloud:8000/discovery) a JSON message is received. It contains:
+After the GET request is made to the service discovery server url (for example http://tomaat.cloud:8000/discover) a JSON message is received. It contains:
 * 'hosts': list of URL of inference services (endpoints)
 * 'modalities': list of modalities the endpoints are capable of processing
 * 'anatomies': list of anatomies the endpoints are capable of segmenting
