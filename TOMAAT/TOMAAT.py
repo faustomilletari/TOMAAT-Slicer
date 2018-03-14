@@ -95,7 +95,7 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
     self.layout.addWidget(directConnectionCollapsibleButton)
     self.directConnectionLayout = qt.QFormLayout(directConnectionCollapsibleButton)
 
-    self.urlBoxDirectConnection = add_textbox("http://localhost:9000/interface", self.select_from_textbox)
+    self.urlBoxDirectConnection = add_textbox("http://localhost:9000", self.select_from_textbox)
 
     self.directConnectionLayout.addRow("Server URL: ", self.urlBoxDirectConnection)
 
