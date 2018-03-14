@@ -22,7 +22,6 @@ Service discovery happens when the user clicks on the button 'Discover Services'
   * "SliderWidget" 
   * "CheckboxWidget" 
   * "RadioButtonWidget"
-
 Each widget allows user interaction. The "ScalarVolumeWidget" allows the user to select a volume from the MRML scene in 3D-Slicer and send it for inference to the remote host, for example. Other widgets have different roles.
 Processing happens when the user clicks on the button 'Process'.
 When the response is received, the data is loaded accordingly. We support responses of arbitrary length containing one or multiple fields of type:
