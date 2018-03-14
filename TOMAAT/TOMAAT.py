@@ -1,64 +1,65 @@
-import vtk, qt, ctk, slicer
-from slicer.ScriptedLoadableModule import *
+import utils.dependencies
+
+import base64
 import logging
 import os
-import numpy as np
-
-try:
-  import requests
-except:
-  import pip
-  pip.main(['install','requests'])
-  import requests
-  pass
-
-try:
-  from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
-except:
-  import pip
-  pip.main(['install', 'requests_toolbelt'])
-  from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
-  pass
-
-import json
-import uuid
-import base64
-import sys
 import tempfile
+import uuid
+
+import ctk
+import qt
+import requests
+import slicer
+
+from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
+from slicer.ScriptedLoadableModule import *
+
+from utils.ui import ScalarVolumeWidget, SliderWidget, CheckboxWidget, RadioButtonWidget
+from utils.ui import collapsible_button, add_image, add_textbox, add_button, add_label
+
+
+MODULE_VERSION = 'Slicer-v2'
+
+
 #
 # TOMAAT
 #
 
-
-module_version = 1
-
-
-class TOMAAT(ScriptedLoadableModule):
-  """Uses ScriptedLoadableModule base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+CONTRIB = ["Fausto Milletari"]
+MESSAGE = \
+  """
+    This module performs analysis of volumetric medical data using 3D convolutional neural 
+    networks. It is intended as a proof of concept and a research module only.
+    The computation of the results is offloaded to remote host. 
+    You need a fast connection to obtain satisfactory results. 
+    In no way the results provided by this model should be trusted to make any clinical judgement. 
+    This module is provided without any guarantee about its functionality, precision and correctness of the results.
+    This module works by exchanging data (medical images) over the network. 
+    There is no guarantee about the destiny of data sent through this model to any remote host. 
+    Normally data gets processed and then deleted but this cannot be formally guaranteed. 
+    Also, no guarantees about privacy can be made. 
+    You are responsible for the anonimization of the data you use to run inference. 
   """
 
+
+class ServiceEntry(qt.QTreeWidgetItem):
+  endpoint_data = None
+
+
+#
+# TOMAAT
+#
+
+class TOMAAT(ScriptedLoadableModule):
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "TOMAAT" # TODO make this more human readable by adding spaces
+    self.parent.title = "TOMAAT"
     self.parent.categories = ["Segmentation"]
     self.parent.dependencies = []
-    self.parent.contributors = ["Fausto Milletari"] # replace with "Firstname Lastname (Organization)"
-    self.parent.helpText = """
-      This module performs segmentation of anatomical structures in volumetric medical data using 3D convolutional neural 
-      networks in (Mainly V-Net - Milletari et al, 2016). It is intended as a proof of concept and a research module only.
-      The computation of the results is offloaded to remote host. You need a fast connection to obtain satisfactory results. 
-      In no way the results provided by this model should be trusted to make any clinical judgement. 
-      This module is provided without any guarantee about its functionality, precision and correctness of the results.
-      This module works by exchanging data (medical images) over the network. There is no guarantee about the destiny of data
-      sent through this model to any remote host. Normally data gets processed and then deleted but this cannot be 
-      formally guaranteed. Also, no guarantees about privacy can be made. You are responsible for the anonimization of the data 
-      you use to run inference. 
-"""
+    self.parent.contributors = CONTRIB
+    self.parent.helpText = MESSAGE
     self.parent.helpText += self.getDefaultModuleDocumentationLink()
-    self.parent.acknowledgementText = """
-      ToDo.
-""" # replace with organization, grant and thanks.
+    self.parent.acknowledgementText = ""
 
 
 #
@@ -66,168 +67,178 @@ class TOMAAT(ScriptedLoadableModule):
 #
 
 class TOMAATWidget(ScriptedLoadableModuleWidget):
-  """Uses ScriptedLoadableModuleWidget base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
-  """
-
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
-    self.serverUrl = ''
+    self.predictionUrl = ''
+    self.interfaceUrl = ''
     self.clearToSendMsg = False
     # Instantiate and connect widgets ...
 
     #
     # LOGO area
     #
-    logoCollapsibleButton = ctk.ctkCollapsibleButton()
-    logoCollapsibleButton.text = "Info"
-    self.layout.addWidget(logoCollapsibleButton)
+    logoCollapsibleButton = collapsible_button('Info')
 
+    self.layout.addWidget(logoCollapsibleButton)
     self.logolayout = qt.QFormLayout(logoCollapsibleButton)
 
-    self.logolabel = qt.QLabel()
-    self.logolabel.setAlignment(4)
-    self.logopixmap = qt.QPixmap(os.path.join(os.path.split(os.path.realpath(__file__))[0], "Resources/Icons/TOMAAT.png"))
-    self.logolabel.setPixmap(self.logopixmap)
+    self.logolabel, _ = \
+      add_image(os.path.join(os.path.split(os.path.realpath(__file__))[0], "Resources/Icons/TOMAAT_INFO.png"))
 
     self.logolayout.addRow(self.logolabel)
 
     #
     # Direct Connection area
     #
-    directConnectionCollapsibleButton = ctk.ctkCollapsibleButton()
-    directConnectionCollapsibleButton.text = "Direct Connection"
+    directConnectionCollapsibleButton = collapsible_button('Direct Connection')
     self.layout.addWidget(directConnectionCollapsibleButton)
     self.directConnectionLayout = qt.QFormLayout(directConnectionCollapsibleButton)
 
-    self.urlBoxDirectConnection = qt.QLineEdit()
-    self.urlBoxDirectConnection.text = "http://localhost:9000"
-    self.urlBoxDirectConnection.connect('textChanged(const QString &)', self.select_from_textbox)
+    self.urlBoxDirectConnection = add_textbox("http://localhost:9000", self.select_from_textbox)
 
     self.directConnectionLayout.addRow("Server URL: ", self.urlBoxDirectConnection)
+
+    directConnectionCollapsibleButton.collapsed = True
 
     #
     # Managed Connection area
     #
-    managedConenctionCollapsibleButton = ctk.ctkCollapsibleButton()
-    managedConenctionCollapsibleButton.text = "Public Server List"
+    managedConenctionCollapsibleButton = collapsible_button('Public Server List')
     self.layout.addWidget(managedConenctionCollapsibleButton)
+
     self.managedConnectionLayout = qt.QFormLayout(managedConenctionCollapsibleButton)
 
-    self.urlBoxManagedConnection = qt.QLineEdit()
-    self.urlBoxManagedConnection.text = "http://tomaat.cloud:8000/discover"
+    self.urlBoxManagedConnection = add_textbox("http://tomaat.cloud:8000/discover")
+
     self.managedConnectionLayout.addRow("Discovery Server URL: ", self.urlBoxManagedConnection)
 
-    self.serviceCombo = qt.QComboBox()
-    self.serviceCombo.currentIndexChanged.connect(self.select_from_combobox)
+    self.serviceTree = qt.QTreeWidget()
+    self.serviceTree.setHeaderLabel('Available services')
+    self.serviceTree.itemSelectionChanged.connect(self.select_from_tree)
 
-    self.managedConnectionLayout.addRow(self.serviceCombo)
+    self.discoverServicesButton = add_button(
+      "Discover Services",
+      "Discover available segmentation services on the net.",
+      self.onDiscoverButton,
+      True
+    )
 
-    self.discoverServicesButton = qt.QPushButton("Discover Services")
-    self.discoverServicesButton.toolTip = "Discover available segmentation services on the net."
-    self.discoverServicesButton.enabled = True
-    self.discoverServicesButton.connect('clicked(bool)', self.onDiscoverButton)
-
-    self.serviceDescription = qt.QLabel()
-    self.serviceDescription.setText('')
+    self.serviceDescription = add_label('')
 
     self.managedConnectionLayout.addRow(self.discoverServicesButton)
 
+    self.managedConnectionLayout.addRow(self.serviceTree)
+
     self.managedConnectionLayout.addRow(self.serviceDescription)
 
-    # layout
-
-
-    #self.urlBox = qt.QLineEdit()
-    #self.urlBox.text = "http://localhost:9000"
-    #connectionFormLayout.addRow("Server URL: ", self.urlBox)
-
-    #
-    # Segmentation Area
-    #
-    segmentationCollapsibleButton = ctk.ctkCollapsibleButton()
-    segmentationCollapsibleButton.text = "Segmentation"
-    self.layout.addWidget(segmentationCollapsibleButton)
-
-    # Layout within the dummy collapsible button
-    segmentationFormLayout = qt.QFormLayout(segmentationCollapsibleButton)
-
-    #
-    # input volume selector
-    #
-    self.inputSelector = slicer.qMRMLNodeComboBox()
-    self.inputSelector.nodeTypes = ["vtkMRMLScalarVolumeNode"]
-    self.inputSelector.selectNodeUponCreation = True
-    self.inputSelector.addEnabled = False
-    self.inputSelector.removeEnabled = False
-    self.inputSelector.noneEnabled = False
-    self.inputSelector.showHidden = False
-    self.inputSelector.showChildNodeTypes = False
-    self.inputSelector.setMRMLScene(slicer.mrmlScene)
-    self.inputSelector.setToolTip("Pick the input to the algorithm.")
-    segmentationFormLayout.addRow("Input Volume: ", self.inputSelector)
-
-    #
-    # threshold value
-    #
-    self.imageThresholdSliderWidget = ctk.ctkSliderWidget()
-    self.imageThresholdSliderWidget.singleStep = 0.01
-    self.imageThresholdSliderWidget.minimum = 0
-    self.imageThresholdSliderWidget.maximum = 1
-    self.imageThresholdSliderWidget.value = 0.5
-    self.imageThresholdSliderWidget.setToolTip(
-      "Set threshold value for computing the output image. Voxels that lower than this value will set to zero.")
-    segmentationFormLayout.addRow("Segmentation threshold", self.imageThresholdSliderWidget)
-
-    #
-    # Apply Button
-    #
-    self.applyButton = qt.QPushButton("Segment")
-    self.applyButton.toolTip = "Run the algorithm."
-    self.applyButton.enabled = False
-    segmentationFormLayout.addRow(self.applyButton)
-
-    self.time = qt.QLabel()
-    self.time.setText('Inference time: ---')
-    segmentationFormLayout.addRow(self.time)
-
-    # connections
-    self.applyButton.connect('clicked(bool)', self.onApplyButton)
-    self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-
-    # Add vertical spacer
-    self.layout.addStretch(1)
-
-    # Refresh Apply button state
-    self.onSelect()
+    self.processingCollapsibleButton = None
 
   def cleanup(self):
     pass
 
-  def onSelect(self):
-    self.applyButton.enabled = self.inputSelector.currentNode()
+  def add_widgets(self, instructions):
+    if self.processingCollapsibleButton is not None:
+      self.processingCollapsibleButton.deleteLater()
+    self.processingCollapsibleButton = ctk.ctkCollapsibleButton()
+    self.processingCollapsibleButton.text = "Processing"
+    self.layout.addWidget(self.processingCollapsibleButton)
+
+    self.processingFormLayout = qt.QFormLayout(self.processingCollapsibleButton)
+
+    # Add vertical spacer
+    self.layout.addStretch(1)
+
+    self.widgets = []
+
+    for instruction in instructions:
+      if instruction['type'] == 'volume':
+        volume = ScalarVolumeWidget(destination=instruction['destination'])
+        self.widgets.append(volume)
+        self.processingFormLayout.addRow('{} Volume: '.format(instruction['destination']), volume)
+
+      if instruction['type'] == 'slider':
+        slider = SliderWidget(
+          destination=instruction['destination'],
+          minimum=instruction['minimum'],
+          maximum=instruction['maximum']
+        )
+        self.widgets.append(slider)
+        self.processingFormLayout.addRow('{} Slider: '.format(instruction['destination']), slider)
+
+      if instruction['type'] == 'checkbox':
+        checkbox = CheckboxWidget(
+          destination=instruction['destination'],
+          text=instruction['text']
+        )
+        self.widgets.append(checkbox)
+        self.processingFormLayout.addRow('{} Checkbox: '.format(instruction['destination']), checkbox)
+
+      if instruction['type'] == 'radiobutton':
+        radiobox = RadioButtonWidget(
+          destination=instruction['destination'],
+          options=instruction['options']
+        )
+        self.widgets.append(radiobox)
+        self.processingFormLayout.addRow('{} Options: '.format(instruction['text']), radiobox)
+
+    self.applyButton = add_button('Process', 'Run the algorithm', enabled=True)
+
+    self.processingFormLayout.addRow(self.applyButton)
+
+    # connections
+    self.applyButton.connect('clicked(bool)', self.onApplyButton)
 
   def select_from_textbox(self):
     print 'USING HOST IN DIRECT CONNECTION PANE'
-    self.serverUrl = self.urlBoxDirectConnection.text
+    self.predictionUrl = self.urlBoxDirectConnection.text
     self.serviceDescription.setText('')
 
-  def select_from_combobox(self):
-    print 'USING HOST SELECTED FROM SERVICE LIST'
-    index = self.serviceCombo.currentIndex
-    self.serverUrl = self.hosts_list[index]
-    self.serviceDescription.setText(self.descriptions_list[index])
+  def select_from_tree(self):
+    item = self.serviceTree.selectedItems()
+    item = item[0]
+
+    if isinstance(item, ServiceEntry):
+      self.predictionUrl = item.endpoint_data['prediction_url']
+      self.interfaceUrl = item.endpoint_data['interface_url']
+      self.serviceDescription.setText(item.endpoint_data['description'])
+
+    logic = InterfaceDiscoveryLogic()
+
+    interface_specification = logic.run(self.interfaceUrl)
+
+    self.add_widgets(interface_specification)
 
   def onDiscoverButton(self):
     logic = ServiceDiscoveryLogic()
-    texts, self.hosts_list, self.descriptions_list = logic.run(self.urlBoxManagedConnection.text)
 
-    self.serviceDescription.setText('')
-    self.serviceCombo.clear()
+    self.serviceTree.clear()
 
-    for text in texts:
-      self.serviceCombo.addItem(text)
+    data = logic.run(self.urlBoxManagedConnection.text)
+
+    for modality in data.keys():
+      mod_item = qt.QTreeWidgetItem()
+      mod_item.setText(0, 'Modality: ' + str(modality))
+
+      self.serviceTree.addTopLevelItem(mod_item)
+
+      for anatomy in data[modality].keys():
+        anatom_item = qt.QTreeWidgetItem()
+        anatom_item.setText(0, 'Anatomy: ' + str(anatomy))
+
+        mod_item.addChild(anatom_item)
+
+        for task in data[modality][anatomy].keys():
+          dim_item = qt.QTreeWidgetItem()
+          dim_item.setText(0, 'Task: ' + str(task))
+
+          anatom_item.addChild(dim_item)
+
+          for entry in data[modality][anatomy][task]:
+            elem = ServiceEntry()
+            elem.setText(0, 'Service: ' + entry['name'] + '. Sid:' + entry['SID'])
+            elem.endpoint_data = entry
+            dim_item.addChild(elem)
 
   def onConnectDirectlyButton(self):
     for elem in self.removeListGuiReset:
@@ -268,19 +279,18 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
   def onApplyButton(self):
     logic = TOMAATLogic()
 
-    if self.serverUrl == '':
+    if self.predictionUrl == '':
       logging.info('NO SERVER HAS BEEN SPECIFIED')
       return
 
     self.confirmationPopup(
       '<center>By clicking Submit button you acknowledge that you <br>'
-      'are going to send the volume  <b>{}</b> over the internet to <br>'
+      'are going to send the specified data over the internet to <br>'
       'a remote server at URL <b>{}</b>. It is your responsibility to <br>'
       'ensure that by doing so you are not violating any rules governing <br>'
       'access to the data being sent. More info '
       '<a href="https://github.com/faustomilletari/TOMAAT-Slicer/blob/master/README.md">here</a>.</center>'.format(
-        self.inputSelector.currentNode().GetName(),
-        self.serverUrl)
+        self.predictionUrl)
     )
 
     if not self.clearToSendMsg:
@@ -289,19 +299,82 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
 
     self.clearToSendMsg=False
 
-    print 'CONNECTING TO SERVER {}'.format(self.serverUrl)
+    print 'CONNECTING TO SERVER {}'.format(self.predictionUrl)
 
     progress_bar = slicer.util.createProgressDialog(labelText="Uploading to remote server", windowTitle="Uploading...")
     progress_bar.setCancelButton(0)
 
-    elap_time, volumeNode = logic.run(
-      self.inputSelector.currentNode(), self.imageThresholdSliderWidget.value, self.serverUrl, progress_bar
+    logic.run(
+      self.widgets, self.predictionUrl, progress_bar
     )
 
-    self.time.setText('Inference time: {} ms'.format(np.round(elap_time)))
+
+def create_callback(encoder, progress_bar):
+  encoder_len = encoder.len
+
+  def callback(monitor):
+    progress_bar.value = float(monitor.bytes_read)/float(encoder_len) * 100
+
+  return callback
+
+
+#
+# TOMAATLogic
+#
+
+class TOMAATLogic(ScriptedLoadableModuleLogic):
+  message = {}
+  savepath = tempfile.gettempdir()
+  node_name = None
+
+  list_files_cleanup = []
+
+  def add_scalar_volume_to_message(self, widget):
+    id = uuid.uuid4()
+    tmp_filename_mha = os.path.join(self.savepath, str(id) + '.mha')
+    slicer.util.saveNode(widget.currentNode(), tmp_filename_mha)
+
+    self.node_name = widget.currentNode().GetName()
+
+    self.message[widget.destination] = ('filename', open(tmp_filename_mha, 'rb'), 'text/plain')
+
+    for view in ['Red', 'Green', 'Yellow']:
+      view_widget = slicer.app.layoutManager().sliceWidget(view)
+      view_logic = view_widget.sliceLogic()
+
+      view_logic.GetSliceCompositeNode().SetForegroundVolumeID(widget.currentNode().GetID())
+      view_logic.GetSliceCompositeNode().SetBackgroundVolumeID(widget.currentNode().GetID())
+
+      view_logic.GetSliceCompositeNode().SetLabelOpacity(0.5)
+      view_logic.FitSliceToAll()
+
+    sliceWidget = slicer.app.layoutManager().sliceWidget('Red')
+    sliceLogic = sliceWidget.sliceLogic()
+    sliceNode = sliceLogic.GetSliceNode()
+    sliceNode.SetSliceVisible(True)
+
+    self.list_files_cleanup.append(tmp_filename_mha)
+
+  def add_slider_value_to_message(self, widget):
+    self.message[widget.destination] = str(widget.value)
+
+  def add_checkbox_value_to_message(self, widget):
+    self.message[widget.destination] = str(widget.value)
+
+  def add_radiobutton_value_to_message(self, widget):
+    self.message[widget.destination] = str(widget.value)
+
+  def receive_label_volume(self, data):
+    tmp_segmentation_mha = os.path.join(self.savepath,  self.node_name + '_result'+ '.mha')
+    with open(tmp_segmentation_mha, 'wb') as f:
+      f.write(base64.decodestring(data['content']))
+
+    success, node = slicer.util.loadLabelVolume(tmp_segmentation_mha, returnNode=True)
+
+    os.remove(tmp_segmentation_mha)
 
     logic = slicer.modules.volumerendering.logic()
-    volumeNode = slicer.util.getNode(volumeNode.GetName())
+    volumeNode = slicer.util.getNode(node.GetName())
     displayNode = logic.CreateVolumeRenderingDisplayNode()
 
     slicer.mrmlScene.AddNode(displayNode)
@@ -314,131 +387,77 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
     threeDView = threeDWidget.threeDView()
     threeDView.resetFocalPoint()
 
-    for view in ['Red', 'Green', 'Yellow']:
-      view_widget = slicer.app.layoutManager().sliceWidget(view)
-      view_logic = view_widget.sliceLogic()
+  def receive_vtk_mesh(self, data):
+    tmp_mesh_vtk = os.path.join(self.savepath, self.node_name + data['label'] + '_mesh' + '.vtk')
+    with open(tmp_mesh_vtk, 'wb') as f:
+      f.write(base64.decodestring(data['content']))
+    slicer.util.loadModel(tmp_mesh_vtk)
 
-      view_logic.GetSliceCompositeNode().SetForegroundVolumeID(self.inputSelector.currentNode().GetID())
-      view_logic.GetSliceCompositeNode().SetBackgroundVolumeID(self.inputSelector.currentNode().GetID())
+    os.remove(tmp_mesh_vtk)
 
-      view_logic.GetSliceCompositeNode().SetLabelOpacity(0.5)
-      view_logic.FitSliceToAll()
+  def receive_fiducials(self, data):
+    tmp_fiducials_fcsv = os.path.join(self.savepath, self.node_name + data['label'] + '_fiducials' + '.fcsv')
+    with open(tmp_fiducials_fcsv, 'wb') as f:
+      f.write(base64.decodestring(data['content']))
+    slicer.util.loadFiducialList(tmp_fiducials_fcsv)
 
-    sliceWidget = slicer.app.layoutManager().sliceWidget('Red')
-    sliceLogic = sliceWidget.sliceLogic()
-    sliceNode = sliceLogic.GetSliceNode()
-    sliceNode.SetSliceVisible(True)
+  def receive_plain_text(self, data):
+    slicer.util.messageBox(data['content'], windowTitle=data['label'])
 
-
-def create_callback(encoder, progress_bar):
-  encoder_len = encoder.len
-
-  def callback(monitor):
-    progress_bar.value = float(monitor.bytes_read)/float(encoder_len) * 100
-
-  return callback
-
-#
-# TOMAATLogic
-#
-
-class TOMAATLogic(ScriptedLoadableModuleLogic):
-  """This class should implement all the actual
-  computation done by your module.  The interface
-  should be such that other python code can import
-  this class and make use of the functionality without
-  requiring an instance of the Widget.
-  Uses ScriptedLoadableModuleLogic base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
-  """
-  def hasImageData(self, volumeNode):
-    """This is an example logic method that
-    returns true if the passed in volume
-    node has valid image data
-    """
-    if not volumeNode:
-      logging.debug('hasImageData failed: no volume node')
-      return False
-    if volumeNode.GetImageData() is None:
-      logging.debug('hasImageData failed: no image data in volume node')
-      return False
-    return True
-
-  def isValidInputOutputData(self, inputVolumeNode):
-    """Validates if the output is not the same as input
-    """
-    if not inputVolumeNode:
-      logging.debug('isValidInputOutputData failed: no input volume node defined')
-      return False
-
-    return True
-
-  def run(self, inputVolume, imageThreshold, server_url, progress_bar):
-    """
-    Run the actual algorithm
-    """
-    savepath = tempfile.gettempdir()
-
-    if not self.isValidInputOutputData(inputVolume):
-      slicer.util.errorDisplay('Input volume is invalid')
-      return False
-
-    if not self.hasImageData(inputVolume):
-      slicer.util.errorDisplay('Input volume has no image data')
-      return False
-    try:
-      node = slicer.util.getNode('result*')
-      slicer.mrmlScene.RemoveNode(node)
-    except:
-      pass
-
+  def run(self, widgets, server_url, progress_bar):
     logging.info('Processing started')
 
-    id = uuid.uuid4()
-    tmp_filename_mha = os.path.join(savepath, str(id) + '.mha')
-    tmp_segmentation_mha = os.path.join(savepath, inputVolume.GetName() + '_segmentation' + '.mha')
+    for widget in widgets:
+      if widget.type == 'ScalarVolumeWidget':
+        self.add_scalar_volume_to_message(widget)
 
-    # prepare data for processing
-    slicer.util.saveNode(inputVolume, tmp_filename_mha)
+      if widget.type == 'SliderWidget':
+        self.add_slider_value_to_message(widget)
 
-    message = {
-      'json': json.dumps(
-        {
-          'threshold': imageThreshold,
-          'module_version': module_version,
-        }
-      ),
-      'file': ('filename', open(tmp_filename_mha, 'rb'), 'text/plain')
-    }
+      if widget.type == 'CheckboxWidget':
+        self.add_checkbox_value_to_message(widget)
 
-    encoder = MultipartEncoder(message)
+      if widget.type == 'RadioButtonWidget':
+        self.add_radiobutton_value_to_message(widget)
+
+    self.message['module_version'] = MODULE_VERSION
+
+    encoder = MultipartEncoder(self.message)
     progress_bar.open()
     callback = create_callback(encoder, progress_bar)
 
     monitor = MultipartEncoderMonitor(encoder, callback)
 
-    response = requests.post(server_url, data=monitor, headers={'Content-Type': monitor.content_type})
+    reply = requests.post(server_url, data=monitor, headers={'Content-Type': monitor.content_type})
 
     print 'MESSAGE SENT'
 
-    response_json = response.json()
+    responses_json = reply.json()
 
     print 'RESPONSE RECEIVED'
 
-    if response_json['status'] != 0:
-      print response_json['error']
-      raise ValueError
+    for response in responses_json:
+      if response['type'] == 'LabelVolume':
+        self.receive_label_volume(response)
 
-    with open(tmp_segmentation_mha, 'wb') as f:
-      f.write(base64.decodestring(response_json['content_mha']))
+      if response['type'] == 'VTKMesh':
+        self.receive_vtk_mesh(response)
 
-    success, node = slicer.util.loadLabelVolume(tmp_segmentation_mha, returnNode=True)
+      if response['type'] == 'Fiducials':
+        self.receive_fiducials(response)
 
-    os.remove(tmp_filename_mha)
-    os.remove(tmp_segmentation_mha)
+      if response['type'] == 'PlainText':
+        self.receive_plain_text(response)
 
-    return response_json['time'], node
+    self.cleanup()
 
+    print 'DONE'
+    
+    return
+
+  def cleanup(self):
+    for file in self.list_files_cleanup:
+      os.remove(file)
 
 #
 # ServiceDiscoveryLogic
@@ -447,19 +466,36 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
 class ServiceDiscoveryLogic(ScriptedLoadableModuleLogic):
   def run(self, server_url):
     response = requests.get(server_url)
-    json = response.json()
+    service_list = response.json()
 
-    modalities = json['modalities']
-    anatomies = json['anatomies']
-    hosts = json['hosts']
-    descriptions = json['descriptions']
+    data = {}
 
-    text, url, descr = [], [], []
-    for m, a, h, d in zip(modalities, anatomies, hosts, descriptions):
-      text.append(m + ':' + a)
-      url.append(h)
-      descr.append(d)
+    for service in service_list:
+      data[service['modality']] = {}
 
-    return text, url, descr
+    for service in service_list:
+      data[service['modality']][service['anatomy']] = {}
+
+    for service in service_list:
+      data[service['modality']][service['anatomy']][service['task']] = []
+
+    for service in service_list:
+      data[service['modality']][service['anatomy']][service['task']].append(service)
+
+    print data
+
+    return data
+
+
+#
+# InterfaceDiscoveryLogic
+#
+
+class InterfaceDiscoveryLogic(ScriptedLoadableModuleLogic):
+  def run(self, server_url):
+    response = requests.get(server_url)
+    interface = response.json()
+
+    return interface
 
 
