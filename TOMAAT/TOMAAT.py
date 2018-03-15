@@ -95,9 +95,15 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
     self.layout.addWidget(directConnectionCollapsibleButton)
     self.directConnectionLayout = qt.QFormLayout(directConnectionCollapsibleButton)
 
-    self.urlBoxDirectConnection = add_textbox("http://localhost:9000", self.select_from_textbox)
+    self.urlBoxDirectConnection = add_textbox("http://localhost:9000")
+
+    self.urlBoxButton = add_button(
+      text='Confirm', tooltip_text='Confirm entry', click_function=self.select_from_textbox, enabled=True
+    )
 
     self.directConnectionLayout.addRow("Server URL: ", self.urlBoxDirectConnection)
+
+    self.directConnectionLayout.addRow(self.urlBoxButton)
 
     directConnectionCollapsibleButton.collapsed = True
 
@@ -196,8 +202,10 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
     self.serviceDescription.setText('')
 
     logic = InterfaceDiscoveryLogic()
-
-    interface_specification = logic.run(self.interfaceUrl)
+    try:
+      interface_specification = logic.run(self.interfaceUrl)
+    except:
+      slicer.util.messageBox("Error during interface discovery")
 
     self.add_widgets(interface_specification)
 
@@ -211,8 +219,10 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
       self.serviceDescription.setText(item.endpoint_data['description'])
 
     logic = InterfaceDiscoveryLogic()
-
-    interface_specification = logic.run(self.interfaceUrl)
+    try:
+      interface_specification = logic.run(self.interfaceUrl)
+    except:
+      slicer.util.messageBox("Error during interface discovery")
 
     self.add_widgets(interface_specification)
 
@@ -221,7 +231,10 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
 
     self.serviceTree.clear()
 
-    data = logic.run(self.urlBoxManagedConnection.text)
+    try:
+      data = logic.run(self.urlBoxManagedConnection.text)
+    except:
+      slicer.util.messageBox("Error during service discovery")
 
     for modality in data.keys():
       mod_item = qt.QTreeWidgetItem()
@@ -311,9 +324,10 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
     progress_bar = slicer.util.createProgressDialog(labelText="Uploading to remote server", windowTitle="Uploading...")
     progress_bar.setCancelButton(0)
 
-    logic.run(
-      self.widgets, self.predictionUrl, progress_bar
-    )
+    try:
+      logic.run(self.widgets, self.predictionUrl, progress_bar)
+    except:
+      slicer.util.messageBox("Error during remote processing")
 
 
 def create_callback(encoder, progress_bar):
@@ -472,7 +486,7 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
 
 class ServiceDiscoveryLogic(ScriptedLoadableModuleLogic):
   def run(self, server_url):
-    response = requests.get(server_url)
+    response = requests.get(server_url, timeout=5.0)
     service_list = response.json()
 
     data = {}
@@ -500,7 +514,7 @@ class ServiceDiscoveryLogic(ScriptedLoadableModuleLogic):
 
 class InterfaceDiscoveryLogic(ScriptedLoadableModuleLogic):
   def run(self, server_url):
-    response = requests.get(server_url)
+    response = requests.get(server_url, timeout=5.0)
     interface = response.json()
 
     return interface
