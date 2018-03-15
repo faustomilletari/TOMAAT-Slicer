@@ -115,7 +115,7 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
 
     self.managedConnectionLayout = qt.QFormLayout(managedConenctionCollapsibleButton)
 
-    self.urlBoxManagedConnection = add_textbox("http://tomaat.cloud:8000/discover")
+    self.urlBoxManagedConnection = add_textbox("http://tomaat.cloud:8001/discover")
 
     self.managedConnectionLayout.addRow("Discovery Server URL: ", self.urlBoxManagedConnection)
 
