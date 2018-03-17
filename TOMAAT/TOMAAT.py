@@ -478,7 +478,9 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
 
   def cleanup(self):
     for file in self.list_files_cleanup:
-      os.remove(file)
+      if os.path.isfile(file):
+        os.remove(file)
+    self.list_files_cleanup = []
 
 #
 # ServiceDiscoveryLogic
