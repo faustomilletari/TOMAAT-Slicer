@@ -407,6 +407,20 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
     threeDView = threeDWidget.threeDView()
     threeDView.resetFocalPoint()
 
+    for view in ['Red', 'Green', 'Yellow']:
+      view_widget = slicer.app.layoutManager().sliceWidget(view)
+      view_logic = view_widget.sliceLogic()
+
+      view_logic.GetSliceCompositeNode().SetLabelVolumeID(node.GetID())
+
+      view_logic.GetSliceCompositeNode().SetLabelOpacity(0.5)
+      view_logic.FitSliceToAll()
+
+    sliceWidget = slicer.app.layoutManager().sliceWidget('Red')
+    sliceLogic = sliceWidget.sliceLogic()
+    sliceNode = sliceLogic.GetSliceNode()
+    sliceNode.SetSliceVisible(True)
+
   def receive_vtk_mesh(self, data):
     tmp_mesh_vtk = os.path.join(self.savepath, self.node_name + data['label'] + '_mesh' + '.vtk')
     with open(tmp_mesh_vtk, 'wb') as f:
