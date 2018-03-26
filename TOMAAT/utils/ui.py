@@ -66,6 +66,23 @@ class ScalarVolumeWidget(slicer.qMRMLNodeComboBox):
         self.showChildNodeTypes = False
         self.setMRMLScene(slicer.mrmlScene)
         self.setToolTip('Pick volume')
+        self.connect('currentNodeChanged(vtkMRMLNode*)', self.update_viz)
+
+    def update_viz(self):
+        for view in ['Red', 'Green', 'Yellow']:
+            view_widget = slicer.app.layoutManager().sliceWidget(view)
+            view_logic = view_widget.sliceLogic()
+
+            view_logic.GetSliceCompositeNode().SetForegroundVolumeID(self.currentNodeID)
+            view_logic.GetSliceCompositeNode().SetBackgroundVolumeID(self.currentNodeID)
+
+            view_logic.GetSliceCompositeNode().SetLabelOpacity(0.5)
+            view_logic.FitSliceToAll()
+
+        sliceWidget = slicer.app.layoutManager().sliceWidget('Red')
+        sliceLogic = sliceWidget.sliceLogic()
+        sliceNode = sliceLogic.GetSliceNode()
+        sliceNode.SetSliceVisible(True)
 
 
 class SliderWidget(ctk.ctkSliderWidget):

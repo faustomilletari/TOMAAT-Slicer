@@ -221,10 +221,9 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
     logic = InterfaceDiscoveryLogic()
     try:
       interface_specification = logic.run(self.interfaceUrl)
+      self.add_widgets(interface_specification)
     except:
-      slicer.util.messageBox("Error during interface discovery")
-
-    self.add_widgets(interface_specification)
+      slicer.util.messageBox("The element you selected is not a service, or there was an error during interface discovery")
 
   def onDiscoverButton(self):
     logic = ServiceDiscoveryLogic()
@@ -390,7 +389,7 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
     with open(tmp_segmentation_mha, 'wb') as f:
       f.write(base64.decodestring(data['content']))
 
-    success, node = slicer.util.loadLabelVolume(tmp_segmentation_mha, returnNode=True)
+    success, node = slicer.util.loadLabelVolume(tmp_segmentation_mha, properties={'show':False}, returnNode=True)
 
     os.remove(tmp_segmentation_mha)
 
