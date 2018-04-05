@@ -84,6 +84,24 @@ class ScalarVolumeWidget(slicer.qMRMLNodeComboBox):
         sliceNode = sliceLogic.GetSliceNode()
         sliceNode.SetSliceVisible(True)
 
+class MarkupsFiducialWidget(slicer.qMRMLNodeComboBox):
+    def __init__(self, destination):
+        super(MarkupsFiducialWidget, self).__init__()
+
+        self.destination = destination
+
+        self.type = 'MarkupsFiducialWidget'
+
+        self.nodeTypes = ['vtkMRMLMarkupsFiducialNode']
+        self.selectNodeUponCreation = True
+        self.addEnabled = False
+        self.removeEnabled = False
+        self.noneEnabled = False
+        self.showHidden = False
+        self.showChildNodeTypes = False
+        self.setMRMLScene(slicer.mrmlScene)
+        self.setToolTip('Pick fiducial list')
+
 
 class SliderWidget(ctk.ctkSliderWidget):
     def __init__(self, minimum, maximum, destination):

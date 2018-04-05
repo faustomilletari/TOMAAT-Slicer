@@ -14,7 +14,7 @@ import slicer
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 from slicer.ScriptedLoadableModule import *
 
-from utils.ui import ScalarVolumeWidget, SliderWidget, CheckboxWidget, RadioButtonWidget
+from utils.ui import ScalarVolumeWidget, MarkupsFiducialWidget, SliderWidget, CheckboxWidget, RadioButtonWidget
 from utils.ui import collapsible_button, add_image, add_textbox, add_button, add_label
 
 
@@ -162,6 +162,11 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
         volume = ScalarVolumeWidget(destination=instruction['destination'])
         self.widgets.append(volume)
         self.processingFormLayout.addRow('{} Volume: '.format(instruction['destination']), volume)
+
+      if instruction['type'] == 'fiducials':
+        fiducial = MarkupsFiducialWidget(destination=instruction['destination'])
+        self.widgets.append(fiducial)
+        self.processingFormLayout.addRow('{} Fiducials: '.format(instruction['destination']), fiducial)
 
       if instruction['type'] == 'slider':
         slider = SliderWidget(
@@ -375,6 +380,15 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
 
     self.list_files_cleanup.append(tmp_filename_mha)
 
+  def add_fiducial_list_to_message(self, widget):
+    fidsl = widget.currentNode()
+    coordsList = [[0.,0.,0.]]*fidsl.GetNumberOfFiducials()
+    for i in range(fidsl.GetNumberOfFiducials()):
+      fidsl.GetNthFiducialPosition(i,coordsList[i])
+    # point format: 0.243534,0.111,9584.0;0.1,0.2,0.3;...
+    result = ";".join([ ",".join([str(c) for c in coords]) for coords in coordsList])
+    self.message[widget.destination] = result
+
   def add_slider_value_to_message(self, widget):
     self.message[widget.destination] = str(widget.value)
 
@@ -444,6 +458,9 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
     for widget in widgets:
       if widget.type == 'ScalarVolumeWidget':
         self.add_scalar_volume_to_message(widget)
+
+      if widget.type == 'MarkupsFiducialWidget':
+        self.add_fiducial_list_to_message(widget)
 
       if widget.type == 'SliderWidget':
         self.add_slider_value_to_message(widget)
