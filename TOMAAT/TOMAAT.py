@@ -447,7 +447,7 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
     tmp_fiducials_fcsv = os.path.join(self.savepath, self.node_name + data['label'] + '_fiducials' + '.fcsv')
     with open(tmp_fiducials_fcsv, 'wb') as f:
       f.write(base64.decodestring(data['content']))
-    slicer.util.loadFiducialList(tmp_fiducials_fcsv)
+    slicer.util.loadMarkupsFiducialList(tmp_fiducials_fcsv)
 
   def receive_plain_text(self, data):
     slicer.util.messageBox(data['content'], windowTitle=data['label'])
