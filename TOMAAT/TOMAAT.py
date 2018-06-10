@@ -11,6 +11,8 @@ import qt
 import requests
 import slicer
 
+from qt import QTimer
+
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 from slicer.ScriptedLoadableModule import *
 
@@ -452,6 +454,38 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
   def receive_plain_text(self, data):
     slicer.util.messageBox(data['content'], windowTitle=data['label'])
 
+  def receive_delayed_response(self, data, server_url):
+    timer = QTimer()
+
+    delayed_url = server_url.replace('/predict', '/responses')
+
+    def check_response():
+      print 'TRYING TO OBTAIN DELAYED RESPONSE'
+      reply = requests.post(delayed_url, data={'request_id': data['request_id']}, timeout=5.0)
+      responses_json = reply.json()
+      self.process_responses(responses_json, server_url)
+
+    timer.singleShot(1000, check_response)
+
+  def process_responses(self, responses_json, server_url):
+    for response in responses_json:
+      if response['type'] == 'LabelVolume':
+        self.receive_label_volume(response)
+
+      if response['type'] == 'VTKMesh':
+        self.receive_vtk_mesh(response)
+
+      if response['type'] == 'Fiducials':
+        self.receive_fiducials(response)
+
+      if response['type'] == 'PlainText':
+        self.receive_plain_text(response)
+
+      if response['type'] == 'DelayedResponse':
+        self.receive_delayed_response(response, server_url)
+
+    self.cleanup()
+
   def run(self, widgets, server_url, progress_bar):
     logging.info('Processing started')
 
@@ -487,20 +521,7 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
 
     print 'RESPONSE RECEIVED'
 
-    for response in responses_json:
-      if response['type'] == 'LabelVolume':
-        self.receive_label_volume(response)
-
-      if response['type'] == 'VTKMesh':
-        self.receive_vtk_mesh(response)
-
-      if response['type'] == 'Fiducials':
-        self.receive_fiducials(response)
-
-      if response['type'] == 'PlainText':
-        self.receive_plain_text(response)
-
-    self.cleanup()
+    self.process_responses(responses_json, server_url)
 
     print 'DONE'
     
