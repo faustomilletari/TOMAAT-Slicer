@@ -103,6 +103,25 @@ class MarkupsFiducialWidget(slicer.qMRMLNodeComboBox):
         self.setToolTip('Pick fiducial list')
 
 
+class TransformWidget(slicer.qMRMLNodeComboBox):
+    def __init__(self, destination):
+        super(TransformWidget, self).__init__()
+
+        self.destination = destination
+
+        self.type = 'TransformWidget'
+
+        self.nodeTypes = ['vtkMRMLTransformNode','vtkMRMLLinearTransformNode','vtkMRMLGridTransformNode','vtkMRMLBSplineTransformNode']
+        self.selectNodeUponCreation = True
+        self.addEnabled = False
+        self.removeEnabled = False
+        self.noneEnabled = False
+        self.showHidden = False
+        self.showChildNodeTypes = False
+        self.setMRMLScene(slicer.mrmlScene)
+        self.setToolTip('Pick transform')
+
+
 class SliderWidget(ctk.ctkSliderWidget):
     def __init__(self, minimum, maximum, destination):
         super(SliderWidget, self).__init__()

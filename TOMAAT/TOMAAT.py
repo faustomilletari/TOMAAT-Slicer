@@ -16,7 +16,7 @@ from qt import QTimer
 from requests_toolbelt import MultipartEncoder, MultipartEncoderMonitor
 from slicer.ScriptedLoadableModule import *
 
-from utils.ui import ScalarVolumeWidget, MarkupsFiducialWidget, SliderWidget, CheckboxWidget, RadioButtonWidget
+from utils.ui import ScalarVolumeWidget, MarkupsFiducialWidget, TransformWidget, SliderWidget, CheckboxWidget, RadioButtonWidget
 from utils.ui import collapsible_button, add_image, add_textbox, add_button, add_label
 
 
@@ -169,6 +169,11 @@ class TOMAATWidget(ScriptedLoadableModuleWidget):
         fiducial = MarkupsFiducialWidget(destination=instruction['destination'])
         self.widgets.append(fiducial)
         self.processingFormLayout.addRow('{} Fiducials: '.format(instruction['destination']), fiducial)
+
+      if instruction['type'] == 'transform':
+        transform = TransformWidget(destination=instruction['destination'])
+        self.widgets.append(transform)
+        self.processingFormLayout.addRow('{} Transform: '.format(instruction['destination']), transform)
 
       if instruction['type'] == 'slider':
         slider = SliderWidget(
@@ -391,6 +396,40 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
     result = ";".join([ ",".join([str(c) for c in coords]) for coords in coordsList])
     self.message[widget.destination] = result
 
+  def add_transform_to_message(self, widget):
+    id = uuid.uuid4()
+    dtype = {
+      'grid': '.nii.gz',
+      'bspline': '.h5',
+      'linear': '.mat'
+    }
+    selected_node = widget.currentNode()
+
+    transformType = ""
+    if isinstance(selected_node,slicer.vtkMRMLGridTransformNode):
+      transformType = "grid"
+    elif isinstance(selected_node,slicer.vtkMRMLBSplineTransformNode):
+      transformType = "bspline"
+    elif isinstance(selected_node,slicer.vtkMRMLLinearTransformNode):
+      transformType = "linear"
+
+    tmp_transform = os.path.join(self.savepath, str(id) + dtype[transformType])
+    slicer.util.saveNode(widget.currentNode(), tmp_transform)
+
+    self.node_name = widget.currentNode().GetName()
+
+    # transform encoding:
+    # <filetype> newline
+    # <base64 of file>
+
+    trf_message = dtype[transformType][1:] + "\n"
+    with open(tmp_transform,'rb') as trfdata:
+      trf_message += base64.encodestring(trfdata.read())
+
+    self.message[widget.destination] = trf_message
+
+    self.list_files_cleanup.append(tmp_transform)
+
   def add_slider_value_to_message(self, widget):
     self.message[widget.destination] = str(widget.value)
 
@@ -451,6 +490,22 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
       f.write(base64.decodestring(data['content']))
     slicer.util.loadMarkupsFiducialList(tmp_fiducials_fcsv)
 
+  def receive_transform(self, data, transformType):
+    if not transformType in ['grid','bspline','linear']:
+      print("Unknown transform type! Skip data entry.")
+      return
+    dtype = {
+      'grid': '.nii.gz',
+      'bspline': '.h5',
+      'linear': '.mat'
+    }
+    tmp_transform = os.path.join(self.savepath, self.node_name + '_result' + dtype[transformType])
+    with open(tmp_transform, 'wb') as f:
+      f.write(base64.decodestring(data['content']))
+
+    success, node = slicer.util.loadTransform(tmp_transform, returnNode=True)
+    os.remove(tmp_transform)
+
   def receive_plain_text(self, data):
     slicer.util.messageBox(data['content'], windowTitle=data['label'])
 
@@ -478,6 +533,15 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
       if response['type'] == 'Fiducials':
         self.receive_fiducials(response)
 
+      if response['type'] == 'TransformGrid':
+        self.receive_transform(response,transformType='grid')
+
+      if response['type'] == 'TransformBSpline':
+        self.receive_transform(response,transformType='bspline')
+
+      if response['type'] == 'TransformLinear':
+        self.receive_transform(response,transformType='linear')
+
       if response['type'] == 'PlainText':
         self.receive_plain_text(response)
 
@@ -495,6 +559,9 @@ class TOMAATLogic(ScriptedLoadableModuleLogic):
 
       if widget.type == 'MarkupsFiducialWidget':
         self.add_fiducial_list_to_message(widget)
+
+      if widget.type == 'TransformWidget':
+        self.add_transform_to_message(widget)
 
       if widget.type == 'SliderWidget':
         self.add_slider_value_to_message(widget)
