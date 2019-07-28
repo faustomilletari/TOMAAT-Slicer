@@ -4,9 +4,9 @@ set(MODULE_NAME TOMAAT)
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}.py
-  __init__.py
   utils/dependencies.py
   utils/ui.py
+  utils/tls.py
   utils/__init__.py
   )
 
